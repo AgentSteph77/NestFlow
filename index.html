@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NestFlow | Modular Transaction Templates</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>NestFlow Template Builder</h1>
+      <p>Modular + stackable transaction workflows</p>
+    </header>
+
+    <main class="container">
+      <section class="card">
+        <div class="row wrap">
+          <h2>Create Transaction</h2>
+          <div class="status-row">
+            <span id="save-indicator" class="save-indicator">Saved</span>
+            <button id="export-json" type="button" class="btn">Export JSON</button>
+            <label class="btn file-btn">
+              Import JSON
+              <input id="import-json" type="file" accept="application/json" />
+            </label>
+          </div>
+        </div>
+        <form id="transaction-form" class="grid-form">
+          <label>
+            Transaction name
+            <input id="transaction-name" required placeholder="123 Main St - Buyer" />
+          </label>
+          <label>
+            Base template
+            <select id="base-template" required></select>
+          </label>
+          <button class="btn btn-cta" type="submit">Create Transaction</button>
+        </form>
+      </section>
+
+      <section class="card" id="transaction-panel" hidden>
+        <div class="row wrap">
+          <h2 id="transaction-title"></h2>
+          <div class="row">
+            <label class="transaction-picker">
+              Transaction
+              <select id="transaction-picker"></select>
+            </label>
+            <button id="add-pack" class="btn btn-cta" type="button">Add Template Pack</button>
+          </div>
+        </div>
+
+        <div class="subsection">
+          <h3>Anchors</h3>
+          <div id="anchors" class="anchor-grid"></div>
+        </div>
+
+        <div class="subsection">
+          <h3>Applied Packs</h3>
+          <ul id="applied-packs" class="pack-list"></ul>
+        </div>
+
+        <div class="subsection">
+          <h3>Tasks</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Done</th>
+                <th>Task</th>
+                <th>Anchor Type</th>
+                <th>Offset Days</th>
+                <th>Manual Override / Due Date</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody id="tasks-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="pack-dialog">
+      <form id="pack-form" method="dialog" class="dialog-content">
+        <h3>Add Template Pack</h3>
+        <label>
+          Pack
+          <select id="pack-select" required></select>
+        </label>
+        <label>
+          Anchor
+          <select id="pack-anchor" required></select>
+        </label>
+        <label class="inline">
+          <input type="checkbox" id="allow-duplicates" />
+          Add anyway (advanced): include duplicates
+        </label>
+        <div class="row end">
+          <button class="btn" value="cancel">Cancel</button>
+          <button class="btn btn-cta" id="confirm-pack" value="default">Apply Pack</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
