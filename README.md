@@ -9,13 +9,16 @@ A lightweight front-end prototype that demonstrates modular and stackable transa
 - Duplicate prevention when applying packs using:
   - `template_task_id`
   - normalized task title
-- Relative due dates driven by transaction anchor dates:
-  - `base_date`
-  - `list_date`
-  - `contract_date`
-  - `closing_date`
-- Recalculates due dates when anchor dates change.
-- Shows anchors, add-pack action, and applied packs list in-transaction.
+- Anchor-based due date rules per task:
+  - `anchor_type` (`consult_date`, `list_date`, `contract_date`, `closing_date`, `custom`)
+  - `offset_days` (negative or positive)
+  - `manual_override_date` (optional)
+- Due date calculation:
+  - `due_date = anchor_date + offset_days`
+  - manual override date takes precedence
+  - changing an anchor date recalculates linked task due dates
+  - completed tasks remain completed after recalculation
+- In-task editing for anchor type, offset days, and manual override date.
 - Uses River Blues + Pink branding palette.
 
 ## Run
