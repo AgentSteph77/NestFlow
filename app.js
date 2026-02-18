@@ -1,5 +1,3 @@
-const STORAGE_KEY = 'nestflow_state_v1';
-
 const anchorLabels = {
   consult_date: 'Consult',
   list_date: 'List',
@@ -84,9 +82,7 @@ const stagePacks = [
 ];
 
 const state = {
-  transactions: [],
-  activeTransactionId: null,
-  saveStatus: 'Saved'
+  transaction: null
 };
 
 const els = {
@@ -103,11 +99,7 @@ const els = {
   packAnchor: document.getElementById('pack-anchor'),
   allowDuplicates: document.getElementById('allow-duplicates'),
   packsList: document.getElementById('applied-packs'),
-  tasksBody: document.getElementById('tasks-body'),
-  saveIndicator: document.getElementById('save-indicator'),
-  exportButton: document.getElementById('export-json'),
-  importInput: document.getElementById('import-json'),
-  transactionPicker: document.getElementById('transaction-picker')
+  tasksBody: document.getElementById('tasks-body')
 };
 
 function normalizeTitle(title) {
@@ -119,20 +111,9 @@ function toDateInput(date) {
   return new Date(date).toISOString().slice(0, 10);
 }
 
-function activeTransaction() {
-  return state.transactions.find((tx) => tx.id === state.activeTransactionId) || null;
-}
-
-function setSaveIndicator(status) {
-  state.saveStatus = status;
-  els.saveIndicator.textContent = status;
-  els.saveIndicator.classList.toggle('saving', status === 'Saving...');
-  els.saveIndicator.classList.toggle('saved', status === 'Saved');
-}
-
-function calculateDueDate(transaction, task) {
+function calculateDueDate(task) {
   if (task.manualOverrideDate) return task.manualOverrideDate;
-  const anchorDate = transaction.anchors[task.anchorType] || null;
+  const anchorDate = state.transaction.anchors[task.anchorType] || null;
   if (!anchorDate) return null;
 
   const d = new Date(anchorDate);
@@ -140,22 +121,22 @@ function calculateDueDate(transaction, task) {
   return d.toISOString().slice(0, 10);
 }
 
-function updateTaskDueDate(transaction, task) {
-  task.dueDate = calculateDueDate(transaction, task);
+function updateTaskDueDate(task) {
+  task.dueDate = calculateDueDate(task);
 }
 
-function recalcTasksForAnchor(transaction, anchorType) {
-  for (const task of transaction.tasks) {
+function recalcTasksForAnchor(anchorType) {
+  for (const task of state.transaction.tasks) {
     if (task.anchorType !== anchorType) continue;
     if (task.manualOverrideDate) {
       task.dueDate = task.manualOverrideDate;
       continue;
     }
-    updateTaskDueDate(transaction, task);
+    updateTaskDueDate(task);
   }
 }
 
-function buildTask(transaction, task, source, anchorOverride) {
+function buildTask(task, source, anchorOverride) {
   const anchorType = anchorOverride || task.defaultAnchor;
   const built = {
     id: crypto.randomUUID(),
@@ -170,100 +151,12 @@ function buildTask(transaction, task, source, anchorOverride) {
     completed: false
   };
 
-  updateTaskDueDate(transaction, built);
+  updateTaskDueDate(built);
   return built;
-}
-
-function saveState() {
-  try {
-    setSaveIndicator('Saving...');
-    const payload = {
-      transactions: state.transactions,
-      activeTransactionId: state.activeTransactionId
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    setSaveIndicator('Saved');
-  } catch {
-    setSaveIndicator('Save unavailable');
-  }
-}
-
-function coerceImportedState(parsed) {
-  if (!parsed || typeof parsed !== 'object') return null;
-  if (!Array.isArray(parsed.transactions)) return null;
-
-  const safeTransactions = parsed.transactions
-    .filter((tx) => tx && typeof tx === 'object' && typeof tx.id === 'string')
-    .map((tx) => ({
-      id: tx.id,
-      name: typeof tx.name === 'string' ? tx.name : 'Untitled transaction',
-      baseTemplateId: typeof tx.baseTemplateId === 'string' ? tx.baseTemplateId : 'buyer',
-      anchors: {
-        consult_date: tx.anchors?.consult_date || null,
-        list_date: tx.anchors?.list_date || null,
-        contract_date: tx.anchors?.contract_date || null,
-        closing_date: tx.anchors?.closing_date || null,
-        custom: tx.anchors?.custom || null
-      },
-      appliedPacks: Array.isArray(tx.appliedPacks) ? tx.appliedPacks : [],
-      tasks: Array.isArray(tx.tasks)
-        ? tx.tasks.map((task) => ({
-            id: task.id || crypto.randomUUID(),
-            templateTaskId: task.templateTaskId || '',
-            title: task.title || 'Untitled task',
-            normalizedTitle: normalizeTitle(task.title || 'Untitled task'),
-            anchorType: Object.hasOwn(anchorLabels, task.anchorType) ? task.anchorType : 'consult_date',
-            offsetDays: Number.isInteger(task.offsetDays) ? task.offsetDays : 0,
-            manualOverrideDate: task.manualOverrideDate || null,
-            dueDate: null,
-            source: task.source || 'Imported',
-            completed: Boolean(task.completed)
-          }))
-        : []
-    }));
-
-  const nextActive = safeTransactions.some((tx) => tx.id === parsed.activeTransactionId)
-    ? parsed.activeTransactionId
-    : safeTransactions[0]?.id || null;
-
-  for (const tx of safeTransactions) {
-    for (const task of tx.tasks) {
-      updateTaskDueDate(tx, task);
-    }
-  }
-
-  return {
-    transactions: safeTransactions,
-    activeTransactionId: nextActive
-  };
-}
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      setSaveIndicator('Saved');
-      return;
-    }
-    const parsed = JSON.parse(raw);
-    const hydrated = coerceImportedState(parsed);
-    if (!hydrated) {
-      setSaveIndicator('Saved');
-      return;
-    }
-
-    state.transactions = hydrated.transactions;
-    state.activeTransactionId = hydrated.activeTransactionId;
-    setSaveIndicator('Saved');
-  } catch {
-    setSaveIndicator('Save unavailable');
-  }
 }
 
 function createTransaction(name, baseTemplateId) {
   const baseTemplate = baseTemplates.find((tpl) => tpl.id === baseTemplateId);
-  if (!baseTemplate) return;
-
   const tx = {
     id: crypto.randomUUID(),
     name,
@@ -279,21 +172,19 @@ function createTransaction(name, baseTemplateId) {
     tasks: []
   };
 
-  tx.tasks.push(...baseTemplate.tasks.map((task) => buildTask(tx, task, baseTemplate.name, task.defaultAnchor)));
-  state.transactions.unshift(tx);
-  state.activeTransactionId = tx.id;
+  state.transaction = tx;
+  tx.tasks.push(...baseTemplate.tasks.map((task) => buildTask(task, baseTemplate.name, task.defaultAnchor)));
 }
 
 function applyPack(packId, anchorType, allowDuplicates = false) {
   const pack = stagePacks.find((item) => item.id === packId);
-  const transaction = activeTransaction();
-  if (!pack || !transaction) return { added: 0, skipped: 0 };
+  if (!pack || !state.transaction) return { added: 0, skipped: 0 };
 
   let added = 0;
   let skipped = 0;
 
   for (const templateTask of pack.tasks) {
-    const duplicate = transaction.tasks.find(
+    const duplicate = state.transaction.tasks.find(
       (task) =>
         task.templateTaskId === templateTask.id ||
         task.normalizedTitle === normalizeTitle(templateTask.title)
@@ -304,12 +195,12 @@ function applyPack(packId, anchorType, allowDuplicates = false) {
       continue;
     }
 
-    transaction.tasks.push(buildTask(transaction, templateTask, pack.name, anchorType));
+    state.transaction.tasks.push(buildTask(templateTask, pack.name, anchorType));
     added += 1;
   }
 
-  if (!transaction.appliedPacks.some((item) => item.id === pack.id)) {
-    transaction.appliedPacks.push({ id: pack.id, name: pack.name, anchorType });
+  if (!state.transaction.appliedPacks.some((item) => item.id === pack.id)) {
+    state.transaction.appliedPacks.push({ id: pack.id, name: pack.name, anchorType });
   }
 
   return { added, skipped };
@@ -330,31 +221,21 @@ function renderTemplateSelectors() {
   els.packAnchor.innerHTML = anchorOptions;
 }
 
-function renderTransactionPicker() {
-  els.transactionPicker.innerHTML = state.transactions
-    .map((tx) => `<option value="${tx.id}">${tx.name}</option>`)
-    .join('');
-
-  if (state.activeTransactionId) {
-    els.transactionPicker.value = state.activeTransactionId;
-  }
-}
-
-function renderAnchors(transaction) {
+function renderAnchors() {
   els.anchors.innerHTML = Object.entries(anchorLabels)
     .map(
       ([anchor, label]) => `
       <label>
         ${label} Date
-        <input type="date" data-anchor="${anchor}" value="${toDateInput(transaction.anchors[anchor])}" />
+        <input type="date" data-anchor="${anchor}" value="${toDateInput(state.transaction.anchors[anchor])}" />
       </label>
     `
     )
     .join('');
 }
 
-function renderPacks(transaction) {
-  els.packsList.innerHTML = transaction.appliedPacks
+function renderPacks() {
+  els.packsList.innerHTML = state.transaction.appliedPacks
     .map((pack) => {
       const anchor = pack.anchorType ? ` (${anchorLabels[pack.anchorType]})` : '';
       return `<li>${pack.name}${anchor}</li>`;
@@ -362,13 +243,13 @@ function renderPacks(transaction) {
     .join('');
 }
 
-function renderTasks(transaction) {
+function renderTasks() {
   const today = toDateInput(new Date());
   const anchorOptions = Object.entries(anchorLabels)
     .map(([id, label]) => `<option value="${id}">${label}</option>`)
     .join('');
 
-  els.tasksBody.innerHTML = transaction.tasks
+  els.tasksBody.innerHTML = state.transaction.tasks
     .map((task) => {
       const overdue = task.dueDate && task.dueDate < today && !task.completed;
       const dueClass = task.completed ? 'task-complete' : overdue ? 'task-overdue' : '';
@@ -395,79 +276,28 @@ function renderTasks(transaction) {
     })
     .join('');
 
-  for (const task of transaction.tasks) {
+  for (const task of state.transaction.tasks) {
     const select = els.tasksBody.querySelector(`select[data-field="anchorType"][data-task-id="${task.id}"]`);
-    if (select) select.value = task.anchorType;
+    if (select) {
+      select.value = task.anchorType;
+    }
   }
 }
 
 function renderTransaction() {
-  const transaction = activeTransaction();
-  renderTransactionPicker();
-
-  if (!transaction) {
-    els.panel.hidden = true;
-    return;
-  }
-
+  if (!state.transaction) return;
   els.panel.hidden = false;
-  els.title.textContent = transaction.name;
-  renderAnchors(transaction);
-  renderPacks(transaction);
-  renderTasks(transaction);
-}
-
-function exportState() {
-  const payload = {
-    transactions: state.transactions,
-    activeTransactionId: state.activeTransactionId
-  };
-
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'nestflow-backup.json';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function importState(file) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const parsed = JSON.parse(String(reader.result));
-      const hydrated = coerceImportedState(parsed);
-      if (!hydrated) {
-        window.alert('Import failed: file is not a valid NestFlow backup.');
-        return;
-      }
-
-      state.transactions = hydrated.transactions;
-      state.activeTransactionId = hydrated.activeTransactionId;
-      saveState();
-      renderTransaction();
-      window.alert('Import complete.');
-    } catch {
-      window.alert('Import failed: could not read JSON.');
-    }
-  };
-
-  reader.readAsText(file);
+  els.title.textContent = state.transaction.name;
+  renderAnchors();
+  renderPacks();
+  renderTasks();
 }
 
 els.form.addEventListener('submit', (event) => {
   event.preventDefault();
   createTransaction(els.name.value.trim(), els.baseTemplate.value);
   renderTransaction();
-  saveState();
   els.form.reset();
-});
-
-els.transactionPicker.addEventListener('change', () => {
-  state.activeTransactionId = els.transactionPicker.value || null;
-  renderTransaction();
-  saveState();
 });
 
 els.addPack.addEventListener('click', () => {
@@ -492,7 +322,6 @@ els.packForm.addEventListener('submit', (event) => {
     els.allowDuplicates.checked
   );
   renderTransaction();
-  saveState();
   els.packDialog.close();
   window.alert(`Pack applied: ${added} task(s) added, ${skipped} duplicate(s) skipped.`);
 });
@@ -502,13 +331,11 @@ els.anchors.addEventListener('change', (event) => {
   if (!(target instanceof HTMLInputElement)) return;
 
   const anchorType = target.dataset.anchor;
-  const transaction = activeTransaction();
-  if (!anchorType || !transaction) return;
+  if (!anchorType) return;
 
-  transaction.anchors[anchorType] = target.value || null;
-  recalcTasksForAnchor(transaction, anchorType);
-  renderTasks(transaction);
-  saveState();
+  state.transaction.anchors[anchorType] = target.value || null;
+  recalcTasksForAnchor(anchorType);
+  renderTasks();
 });
 
 els.tasksBody.addEventListener('change', (event) => {
@@ -516,16 +343,14 @@ els.tasksBody.addEventListener('change', (event) => {
   if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
 
   const taskId = target.dataset.taskId;
-  const transaction = activeTransaction();
-  if (!taskId || !transaction) return;
+  if (!taskId) return;
 
-  const task = transaction.tasks.find((item) => item.id === taskId);
+  const task = state.transaction.tasks.find((item) => item.id === taskId);
   if (!task) return;
 
   if (target instanceof HTMLInputElement && target.type === 'checkbox') {
     task.completed = target.checked;
-    renderTasks(transaction);
-    saveState();
+    renderTasks();
     return;
   }
 
@@ -541,23 +366,8 @@ els.tasksBody.addEventListener('change', (event) => {
     task.manualOverrideDate = target.value || null;
   }
 
-  updateTaskDueDate(transaction, task);
-  renderTasks(transaction);
-  saveState();
-});
-
-els.exportButton.addEventListener('click', () => {
-  exportState();
-});
-
-els.importInput.addEventListener('change', () => {
-  const file = els.importInput.files?.[0];
-  if (file) {
-    importState(file);
-  }
-  els.importInput.value = '';
+  updateTaskDueDate(task);
+  renderTasks();
 });
 
 renderTemplateSelectors();
-loadState();
-renderTransaction();

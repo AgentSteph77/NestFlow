@@ -20,17 +20,7 @@
 
     <main class="container">
       <section class="card">
-        <div class="row wrap">
-          <h2>Create Transaction</h2>
-          <div class="status-row">
-            <span id="save-indicator" class="save-indicator">Saved</span>
-            <button id="export-json" type="button" class="btn">Export JSON</button>
-            <label class="btn file-btn">
-              Import JSON
-              <input id="import-json" type="file" accept="application/json" />
-            </label>
-          </div>
-        </div>
+        <h2>Create Transaction</h2>
         <form id="transaction-form" class="grid-form">
           <label>
             Transaction name
@@ -45,15 +35,9 @@
       </section>
 
       <section class="card" id="transaction-panel" hidden>
-        <div class="row wrap">
+        <div class="row">
           <h2 id="transaction-title"></h2>
-          <div class="row">
-            <label class="transaction-picker">
-              Transaction
-              <select id="transaction-picker"></select>
-            </label>
-            <button id="add-pack" class="btn btn-cta" type="button">Add Template Pack</button>
-          </div>
+          <button id="add-pack" class="btn btn-cta" type="button">Add Template Pack</button>
         </div>
 
         <div class="subsection">

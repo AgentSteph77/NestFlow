@@ -19,9 +19,6 @@ A lightweight front-end prototype that demonstrates modular and stackable transa
   - changing an anchor date recalculates linked task due dates
   - completed tasks remain completed after recalculation
 - In-task editing for anchor type, offset days, and manual override date.
-- Persistent local storage with versioned key: `nestflow_state_v1`.
-- Automatic save after all app changes with subtle save-status indicator.
-- Export JSON and Import JSON for backup/migration.
 - Uses River Blues + Pink branding palette.
 
 ## Run
